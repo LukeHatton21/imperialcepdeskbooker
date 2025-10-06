@@ -91,24 +91,39 @@ else:
         else:
             room = st.selectbox("Select a room:", list(rooms.keys()))
             available_desks = rooms[room]
-            booked_desks = st.session_state.bookings[
-                (st.session_state.bookings["Date-Month"] == selected_date_str) &
-                (st.session_state.bookings["Room"] == room)
-            ]["Desk"].tolist()
-            free_desks = [d for d in available_desks if d not in booked_desks]
-            desk = st.selectbox("Select a desk:", free_desks if free_desks else ["No desks available"])
 
-            if st.button("Book Desk"):
-                if desk == "No desks available":
-                    st.warning("No desks left in this room on this date.")
-                else:
-                    new_booking = {"Date-Month": selected_date_str, "Room": room, "Desk": desk, "User": st.session_state.user}
-                    st.session_state.bookings = pd.concat([
-                        st.session_state.bookings, pd.DataFrame([new_booking])
-                    ], ignore_index=True)
-                    normalize_bookings_date()
-                    st.session_state.bookings.to_csv(BOOKINGS_FILE, index=False)
-                    st.success(f"Booked {desk} in {room} on {selected_date_str} for {st.session_state.user} ✅")
+            # Filter out booked desks for that date and room
+            same_day_room_bookings = st.session_state.bookings[
+                (st.session_state.bookings["Date-Month"] == selected_date_str)
+                & (st.session_state.bookings["Room"] == room)
+            ]
+
+            booked_desks = same_day_room_bookings["Desk"].tolist()
+            free_desks = [desk for desk in available_desks if desk not in booked_desks]
+
+            if not free_desks:
+                st.error("No desks available for this room on the selected date.")
+            else:
+                desk = st.selectbox("Select a desk:", free_desks)
+                if st.button("Book Desk"):
+                    # Double-check desk still free before saving (prevents race conditions)
+                    latest_bookings = st.session_state.bookings[
+                        (st.session_state.bookings["Date-Month"] == selected_date_str)
+                        & (st.session_state.bookings["Room"] == room)
+                    ]
+                    if desk in latest_bookings["Desk"].tolist():
+                        st.error("Sorry, that desk was just booked by someone else.")
+                    else:
+                        new_booking = pd.DataFrame(
+                            [[st.session_state.user, selected_date_str, room, desk]],
+                            columns=["User", "Date-Month", "Room", "Desk"]
+                        )
+                        st.session_state.bookings = pd.concat(
+                            [st.session_state.bookings, new_booking],
+                            ignore_index=True
+                        )
+                        st.success(f"✅Desk {desk} booked successfully for {selected_date_str} in {room}.")
+
 
     with tab2:
         user_bookings = st.session_state.bookings[st.session_state.bookings["User"] == st.session_state.user]
