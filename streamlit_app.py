@@ -4,6 +4,7 @@ import datetime
 import os
 from PIL import Image
 import csv
+import altair as alt
 
 # --- Config ---
 rooms = {
@@ -70,7 +71,7 @@ else:
         st.rerun()
 
     # --- Tabs ---
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["➕ Book a Desk", "❌ Cancel Booking", "🎫 Your Bookings", "📋 All Bookings", "🗺️ Floor Maps"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["➕ Book a Desk", "❌ Cancel Booking", "🎫 Your Bookings", "📋 All Bookings", "🗺️ Floor Maps", "ℹ️ About"])
 
     with tab1:
         today = datetime.date.today()
@@ -89,6 +90,32 @@ else:
         if already_booked:
             st.warning(f"You already have a booking on {selected_date_str}. You can only book one desk per day.")
         else:
+            free_counts = []
+            for room, desks in rooms.items():
+                booked_desks = st.session_state.bookings[
+                (st.session_state.bookings["Date-Month"] == selected_date_str)
+                & (st.session_state.bookings["Room"] == room)
+            ]["Desk"].tolist()
+                free_count = len([d for d in desks if d not in booked_desks])
+                free_counts.append({"Room": room, "Free Desks": free_count})
+
+            free_df = pd.DataFrame(free_counts)
+
+            # Display bar chart
+            chart = (
+            alt.Chart(free_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("Room:N", title="Room"),
+                y=alt.Y("Free Desks:Q", title="Number of Free Desks"),
+                color=alt.Color("Room:N", legend=None),
+                tooltip=["Room", "Free Desks"]
+            )
+            .properties(width="container", height=300, title=f"Available Desks on {selected_date_str}")
+        )
+            st.altair_chart(chart, use_container_width=True)                                             
+            
+            
             room = st.selectbox("Select a room:", list(rooms.keys()))
             available_desks = rooms[room]
 
@@ -122,7 +149,7 @@ else:
                             [st.session_state.bookings, new_booking],
                             ignore_index=True
                         )
-                        st.success(f"✅Desk {desk} booked successfully for {selected_date_str} in {room}.")
+                        st.success(f"✅ {desk} booked successfully for {selected_date_str} in Room {room}.")
 
 
     with tab2:
@@ -187,4 +214,23 @@ else:
             st.image(img, caption=f"Floor Layout Room {map_room}", width="stretch")
         else:
             st.warning(f"Floor layout image for room {map_room} not found.")
+
+    with tab6:
+        st.header("About This App")
+        st.markdown("""
+        This app allows CEP PhD students to book desks in the 6th floor rooms!
+        
+        **Features:**
+        - Book a desk up to 7 days in advance.
+        - View and cancel your bookings.
+        - See overall bookings and desk availability.
+        - View floor maps of rooms.
+
+        **Usage Guidelines:**
+        - Each user can only book one desk per day.
+        - Please ensure to cancel bookings if you no longer need the desk.
+                    
+
+        For any issues or suggestions, please contact Luke Hatton or Eirini Sampson. We're currently trialling this as a booking system for the PhD desks so want to hear your feedback!
+        """)
 
