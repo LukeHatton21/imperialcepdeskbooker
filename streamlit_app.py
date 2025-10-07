@@ -10,7 +10,7 @@ import altair as alt
 rooms = {
     "601": [f"Desk {i}" for i in range(1, 9)],
     "602": [f"Desk {i}" for i in range(1, 9)],
-    "604": [f"Desk {i}" for i in range(1, 13)],
+    "603": [f"Desk {i}" for i in range(1, 13)],
     "605": [f"Desk {i}" for i in range(1, 10)]
 }
 booking_horizon = 7  # days in advance
