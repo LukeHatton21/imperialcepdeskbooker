@@ -54,8 +54,8 @@ if "user" not in st.session_state:
     st.session_state.user = ""
 
 if not st.session_state.user:
-    st.title("👤 CEP Desk Booking App Login 2025/26")
-    user_input = st.text_input("Enter your name to continue:")
+    st.title("👩‍💼🖥👨‍💼CEP Desk Booking 2025/26")
+    user_input = st.text_input("Enter your full name to continue (forename + surname):")
     if st.button("Continue"):
         if user_input.strip() == "":
             st.warning("Please enter your name.")
