@@ -11,7 +11,7 @@ rooms = {
     "601": [f"Desk {i}" for i in range(1, 9)],
     "602": [f"Desk {i}" for i in range(1, 9)],
     "603": [f"Desk {i}" for i in range(1, 13)],
-    "605": [f"Desk {i}" for i in range(1, 10)]
+    "605": [f"Desk {i}" for i in range(1, 11)]
 }
 booking_horizon = 7  # days in advance
 BOOKINGS_FILE = "bookings.csv"
