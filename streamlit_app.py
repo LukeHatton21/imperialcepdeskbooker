@@ -26,6 +26,10 @@ def parse_date_from_csv(date_str):
     # date_str: e.g. '06 October'
     return datetime.datetime.strptime(date_str + f" {datetime.date.today().year}", "%d %B %Y").date()
 
+def save_bookings():
+    """Save the current session bookings to CSV."""
+    st.session_state.bookings.to_csv(BOOKINGS_FILE, index=False)
+
 if os.path.exists(BOOKINGS_FILE):
     bookings = pd.read_csv(BOOKINGS_FILE, quotechar='"')
     # Migration: support old 'Day-Date' column
@@ -71,11 +75,38 @@ else:
         st.rerun()
 
     # --- Tabs ---
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["➕ Book a Desk", "❌ Cancel Booking", "🎫 Your Bookings", "📋 All Bookings", "🗺️ Floor Maps", "ℹ️ About"])
+    tab5, tab1, tab2, tab3, tab4, tab6 = st.tabs(["🗺️ Floor Maps", "➕ Book a Desk", "❌ Cancel Booking", "🎫 Your Bookings", "📋 All Bookings", "ℹ️ About"])
 
-    with tab1:
+    with tab5:
         today = datetime.date.today()
         max_date = today + datetime.timedelta(days=booking_horizon)
+        vis_date = st.date_input("Select a date to view floor maps:", min_value=today, max_value=max_date, key="map_date")
+        vis_date_str = format_date_for_csv(vis_date)
+        map_room = st.selectbox("Select a room to view floor map:", list(rooms.keys()))
+
+        # Show desk booking status (use boolean indexing)
+        room_bookings = st.session_state.bookings[
+            (st.session_state.bookings["Date-Month"] == vis_date_str) &
+            (st.session_state.bookings["Room"] == map_room)
+        ]
+        st.subheader("Desk Status")
+        for d in rooms[map_room]:
+            if d in room_bookings["Desk"].tolist():
+                booked_by = room_bookings.loc[room_bookings["Desk"] == d, "User"].values[0]
+                st.markdown(f"**{d}: Booked by {booked_by}**")
+            else:
+                st.markdown(f"**{d}: Free**")
+
+        # Load floor layout image
+        img_path = os.path.join(ROOM_FLOOR_FOLDER, f"{map_room}.png")
+        if os.path.exists(img_path):
+            img = Image.open(img_path)
+            st.image(img, caption=f"Floor Layout Room {map_room}", width="stretch")
+        else:
+            st.warning(f"Floor layout image for room {map_room} not found.")
+
+
+    with tab1:
         selected_date = st.date_input("Select a date:", min_value=today, max_value=max_date)
 
         # Format selected date for storage/display
@@ -149,6 +180,7 @@ else:
                             [st.session_state.bookings, new_booking],
                             ignore_index=True
                         )
+                        save_bookings()
                         st.success(f"✅ {desk} booked successfully for {selected_date_str} in Room {room}.")
 
 
@@ -166,7 +198,7 @@ else:
                 )
                 st.session_state.bookings = st.session_state.bookings.drop(st.session_state.bookings[mask].index)
                 normalize_bookings_date()
-                st.session_state.bookings.to_csv(BOOKINGS_FILE, index=False)
+                save_bookings()
                 st.success(f"Cancelled booking for {cancel_desk} in {cancel_room} on {cancel_date_str} ✅")
         else:
             st.info("You have no bookings to cancel.")
@@ -189,32 +221,7 @@ else:
         else:
             st.info("No bookings for this date.")
 
-    with tab5:
-        vis_date = st.date_input("Select a date to view floor maps:", min_value=today, max_value=max_date, key="map_date")
-        vis_date_str = format_date_for_csv(vis_date)
-        map_room = st.selectbox("Select a room to view floor map:", list(rooms.keys()))
-
-        # Show desk booking status (use boolean indexing)
-        room_bookings = st.session_state.bookings[
-            (st.session_state.bookings["Date-Month"] == vis_date_str) &
-            (st.session_state.bookings["Room"] == map_room)
-        ]
-        st.subheader("Desk Status")
-        for d in rooms[map_room]:
-            if d in room_bookings["Desk"].tolist():
-                booked_by = room_bookings.loc[room_bookings["Desk"] == d, "User"].values[0]
-                st.markdown(f"**{d}: Booked by {booked_by}**")
-            else:
-                st.markdown(f"**{d}: Free**")
-
-        # Load floor layout image
-        img_path = os.path.join(ROOM_FLOOR_FOLDER, f"{map_room}.png")
-        if os.path.exists(img_path):
-            img = Image.open(img_path)
-            st.image(img, caption=f"Floor Layout Room {map_room}", width="stretch")
-        else:
-            st.warning(f"Floor layout image for room {map_room} not found.")
-
+    
     with tab6:
         st.header("About This App")
         st.markdown("""
@@ -233,4 +240,10 @@ else:
 
         For any issues or suggestions, please contact Luke Hatton or Eirini Sampson. We're currently trialling this as a booking system for the PhD desks so want to hear your feedback!
         """)
+if "last_saved_bookings" not in st.session_state:
+    st.session_state.last_saved_bookings = st.session_state.bookings.copy()
+
+if not st.session_state.bookings.equals(st.session_state.last_saved_bookings):
+    save_bookings()
+    st.session_state.last_saved_bookings = st.session_state.bookings.copy()
 
